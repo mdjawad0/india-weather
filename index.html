@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>India Climate Intelligence | 2026</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --accent: #00d4ff;
+            --danger: #ff4d4d;
+            --text: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            background-attachment: fixed;
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Sidebar/Nav */
+        nav {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--glass-border);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-links button {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 8px 15px;
+            margin-left: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+
+        .nav-links button.active, .nav-links button:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .search-section {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass);
+            color: white;
+            font-size: 1rem;
+        }
+
+        /* Grid System */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+            background: var(--accent);
+        }
+
+        .card.danger::before { background: var(--danger); }
+
+        .city-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .city-name { font-size: 1.4rem; font-weight: bold; }
+        .temp-display { font-size: 3rem; margin: 15px 0; }
+        
+        .stat-line { 
+            display: flex; 
+            justify-content: space-between; 
+            margin: 8px 0; 
+            font-size: 0.95rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 5px;
+        }
+
+        .wet-bulb-val { color: var(--accent); font-weight: bold; }
+
+        /* Tables for Top 10 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--glass);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 15px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        th { background: rgba(0,0,0,0.2); color: var(--accent); }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div style="font-size: 1.5rem; font-weight: bold;"><i class="fas fa-wind"></i> CLIMATE.IN</div>
+    <div class="nav-links">
+        <button onclick="showPage('home')" id="btn-home" class="active">Home</button>
+        <button onclick="showPage('analytics')" id="btn-analytics">India Top 10</button>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="search-section">
+        <input type="text" id="cityInput" placeholder="Search any city (e.g. Hyderabad, Tokyo)...">
+        <button onclick="searchCity()" style="padding: 10px 25px; background: var(--accent); border: none; border-radius: 8px; cursor: pointer;">Search</button>
+    </div>
+
+    <div id="page-home">
+        <h2 id="home-title">Featured Locations</h2>
+        <div id="main-grid" class="grid">
+            </div>
+    </div>
+
+    <div id="page-analytics" class="hidden">
+        <h2>Extreme Conditions (India)</h2>
+        <p style="opacity: 0.7; margin-bottom: 20px;">Real-time snapshots of the most intense climate zones in India.</p>
+        
+        <div class="grid">
+            <div class="card">
+                <h3>Top 10: Wet-Bulb (Deadly Heat)</h3>
+                <div id="list-wetbulb"></div>
+            </div>
+            <div class="card">
+                <h3>Top 10: Dry Temperature</h3>
+                <div id="list-dry"></div>
+            </div>
+            <div class="card">
+                <h3>Top 10: Humidity</h3>
+                <div id="list-humidity"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_KEY = '5586ee0fcf3cabb268b6edeb55b86d6b';
+    const initialCities = ['Bangalore', 'Mulbagal', 'Mysore', 'Andhra Pradesh', 'Chennai', 'Mumbai', 'Kolkata', 'Delhi', 'Uttar Pradesh'];
+    
+    // We'll use these to simulate the India-wide rankings since API limits prevent scanning every town
+    const indiaExtremeCities = ['Banda', 'Prayagraj', 'Akola', 'Wardha', 'Jaisalmer', 'Kolkata', 'Chennai', 'Agartala', 'Bhubaneswar', 'Amravati', 'Vijayawada', 'Lucknow'];
+
+    function calculateWetBulb(T, RH) {
+        return (T * Math.atan(0.151977 * Math.pow(RH + 8.313659, 0.5)) + 
+               Math.atan(T + RH) - Math.atan(RH - 1.676331) + 
+               0.00391838 * Math.pow(RH, 1.5) * Math.atan(0.023101 * RH) - 4.686035).toFixed(1);
+    }
+
+    async function getWeatherData(city) {
+        try {
+            const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${API_KEY}`);
+            return await res.json();
+        } catch (e) { return null; }
+    }
+
+    function createCard(data) {
+        const wb = calculateWetBulb(data.main.temp, data.main.humidity);
+        const isDangerous = wb > 30;
+        return `
+            <div class="card ${isDangerous ? 'danger' : ''}">
+                <div class="city-header">
+                    <div class="city-name">${data.name}</div>
+                    <i class="fas fa-cloud-sun"></i>
+                </div>
+                <div class="temp-display">${Math.round(data.main.temp)}°C</div>
+                <div class="stat-line"><span>Humidity:</span> <span>${data.main.humidity}%</span></div>
+                <div class="stat-line"><span>Condition:</span> <span>${data.weather[0].main}</span></div>
+                <div class="stat-line"><span>Wet-Bulb Temp:</span> <span class="wet-bulb-val">${wb}°C</span></div>
+            </div>
+        `;
+    }
+
+    async function loadHome() {
+        const grid = document.getElementById('main-grid');
+        grid.innerHTML = 'Loading atmospheric data...';
+        let html = '';
+        for(let city of initialCities) {
+            const data = await getWeatherData(city);
+            if(data && data.cod === 200) html += createCard(data);
+        }
+        grid.innerHTML = html;
+    }
+
+    async function searchCity() {
+        const query = document.getElementById('cityInput').value;
+        if(!query) return;
+        const data = await getWeatherData(query);
+        const grid = document.getElementById('main-grid');
+        if(data && data.cod === 200) {
+            showPage('home');
+            document.getElementById('home-title').innerText = "Search Result";
+            grid.innerHTML = createCard(data);
+        } else {
+            alert("City not found");
+        }
+    }
+
+    async function loadAnalytics() {
+        const lists = { wet: [], dry: [], hum: [] };
+        
+        for(let city of indiaExtremeCities) {
+            const data = await getWeatherData(city);
+            if(data && data.cod === 200) {
+                const wb = calculateWetBulb(data.main.temp, data.main.humidity);
+                lists.wet.push({ name: city, val: parseFloat(wb) });
+                lists.dry.push({ name: city, val: data.main.temp });
+                lists.hum.push({ name: city, val: data.main.humidity });
+            }
+        }
+
+        const renderList = (id, arr, unit) => {
+            const sorted = arr.sort((a,b) => b.val - a.val).slice(0,10);
+            document.getElementById(id).innerHTML = sorted.map((i, idx) => `
+                <div class="stat-line">
+                    <span>${idx+1}. ${i.name}</span>
+                    <span style="font-weight:bold">${i.val}${unit}</span>
+                </div>
+            `).join('');
+        };
+
+        renderList('list-wetbulb', lists.wet, '°C');
+        renderList('list-dry', lists.dry, '°C');
+        renderList('list-humidity', lists.hum, '%');
+    }
+
+    function showPage(page) {
+        document.getElementById('page-home').classList.toggle('hidden', page !== 'home');
+        document.getElementById('page-analytics').classList.toggle('hidden', page !== 'analytics');
+        document.getElementById('btn-home').classList.toggle('active', page === 'home');
+        document.getElementById('btn-analytics').classList.toggle('active', page === 'analytics');
+        
+        if(page === 'analytics') loadAnalytics();
+        if(page === 'home') document.getElementById('home-title').innerText = "Featured Locations";
+    }
+
+    // Init
+    loadHome();
+</script>
+</body>
+</html>
